@@ -87,6 +87,9 @@ class MainWindow(QMainWindow):
         # Show welcome placeholder
         self.show_welcome_message()
 
+        # Enable drag and drop functionality
+        self.setAcceptDrops(True)
+
     def connect_signals(self) -> None:
         """
         Connect signals from DocumentState, Toolbar and SearchBar.
@@ -157,33 +160,39 @@ class MainWindow(QMainWindow):
         )
         
         if file_path:
-            self.pdf_engine.close_document()
-            # Clear search bar input on new document
-            self.search_bar.search_input.clear()
-            self.clear_search_state()
+            self.load_pdf_from_path(file_path)
+
+    def load_pdf_from_path(self, file_path: str) -> None:
+        """
+        Load a PDF document from the given local file path.
+        """
+        self.pdf_engine.close_document()
+        # Clear search bar input on new document
+        self.search_bar.search_input.clear()
+        self.clear_search_state()
+        
+        success = self.pdf_engine.load_document(file_path)
+        
+        if success:
+            # Update window title
+            file_name = os.path.basename(file_path)
+            self.setWindowTitle(f"Premium PDF Reader - {file_name}")
             
-            success = self.pdf_engine.load_document(file_path)
+            # Load state
+            self.state.load_document(self.pdf_engine.get_page_count())
             
-            if success:
-                # Update window title
-                file_name = os.path.basename(file_path)
-                self.setWindowTitle(f"Premium PDF Reader - {file_name}")
-                
-                # Load state
-                self.state.load_document(self.pdf_engine.get_page_count())
-                
-                # Apply Fit or Render first page
-                if self.state.fit_mode != 'none':
-                    old_zoom = self.state.zoom_level
-                    self.calculate_and_apply_fit_zoom()
-                    if old_zoom == self.state.zoom_level:
-                        self.render_current_page()
-                else:
+            # Apply Fit or Render first page
+            if self.state.fit_mode != 'none':
+                old_zoom = self.state.zoom_level
+                self.calculate_and_apply_fit_zoom()
+                if old_zoom == self.state.zoom_level:
                     self.render_current_page()
             else:
-                self.canvas.setText("Failed to load PDF. Please select a valid file.")
-                self.canvas.setStyleSheet("color: #ff3333; font-size: 16px; background-color: #121212; padding: 20px;")
-                self.canvas.adjustSize()
+                self.render_current_page()
+        else:
+            self.canvas.setText("Failed to load PDF. Please select a valid file.")
+            self.canvas.setStyleSheet("color: #ff3333; font-size: 16px; background-color: #121212; padding: 20px;")
+            self.canvas.adjustSize()
 
     def extract_text(self) -> None:
         """
@@ -489,6 +498,28 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if self.state.is_loaded and self.state.fit_mode != 'none':
             self.calculate_and_apply_fit_zoom()
+
+    def dragEnterEvent(self, event) -> None:
+        """
+        Accept drag-enter events if they contain at least one local PDF file.
+        """
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.toLocalFile().lower().endswith('.pdf'):
+                    event.acceptProposedAction()
+                    return
+
+    def dropEvent(self, event) -> None:
+        """
+        Open the first PDF file dropped onto the application window.
+        """
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                if file_path.lower().endswith('.pdf'):
+                    self.load_pdf_from_path(file_path)
+                    event.acceptProposedAction()
+                    return
 
     def closeEvent(self, event) -> None:
         """
