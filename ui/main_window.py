@@ -1,7 +1,7 @@
 import os
 from PyQt6.QtWidgets import QMainWindow, QFileDialog, QScrollArea, QLabel, QApplication, QWidget, QVBoxLayout, QMessageBox, QInputDialog
-from PyQt6.QtCore import Qt, QRectF
-from PyQt6.QtGui import QPixmap, QShortcut, QKeySequence, QPainter, QColor, QIcon
+from PyQt6.QtCore import Qt, QRectF, QEvent
+from PyQt6.QtGui import QPixmap, QShortcut, QKeySequence, QPainter, QColor, QIcon, QDragEnterEvent, QDragMoveEvent, QDropEvent
 from core.pdf_engine import PDFEngine
 from core.state import DocumentState
 from core.text_extractor import TextExtractor
@@ -97,6 +97,11 @@ class MainWindow(QMainWindow):
 
         # Enable drag and drop functionality
         self.setAcceptDrops(True)
+        
+        # Install event filter to capture drag and drop on scroll area and canvas
+        self.scroll_area.viewport().installEventFilter(self)
+        self.canvas.installEventFilter(self)
+        self.scroll_area.setAcceptDrops(True)
 
     def connect_signals(self) -> None:
         """
@@ -551,6 +556,60 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if self.state.is_loaded and self.state.fit_mode != 'none':
             self.calculate_and_apply_fit_zoom()
+
+    def eventFilter(self, watched, event) -> bool:
+        """
+        Filter events to handle Drag and Drop on viewport and canvas.
+        """
+        if event.type() == QEvent.Type.DragEnter:
+            if event.mimeData().hasUrls():
+                for url in event.mimeData().urls():
+                    if url.toLocalFile().lower().endswith('.pdf'):
+                        event.acceptProposedAction()
+                        return True
+            return False
+            
+        elif event.type() == QEvent.Type.DragMove:
+            if event.mimeData().hasUrls():
+                for url in event.mimeData().urls():
+                    if url.toLocalFile().lower().endswith('.pdf'):
+                        event.acceptProposedAction()
+                        return True
+            return False
+            
+        elif event.type() == QEvent.Type.Drop:
+            if event.mimeData().hasUrls():
+                for url in event.mimeData().urls():
+                    file_path = url.toLocalFile()
+                    if file_path.lower().endswith('.pdf'):
+                        self.load_pdf_from_path(file_path)
+                        event.acceptProposedAction()
+                        return True
+            return False
+            
+        return super().eventFilter(watched, event)
+
+    def dragEnterEvent(self, event) -> None:
+        """
+        Accept drag-enter events if they contain at least one local PDF file.
+        """
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                if url.toLocalFile().lower().endswith('.pdf'):
+                    event.acceptProposedAction()
+                    return
+
+    def dropEvent(self, event) -> None:
+        """
+        Open the first PDF file dropped onto the application window.
+        """
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                if file_path.lower().endswith('.pdf'):
+                    self.load_pdf_from_path(file_path)
+                    event.acceptProposedAction()
+                    return
 
     def closeEvent(self, event) -> None:
         """
