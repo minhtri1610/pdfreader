@@ -269,10 +269,13 @@ class MainWindow(QMainWindow):
         Add a text note with a highlight annotation.
         """
         preview_text = text if len(text) <= 50 else f"{text[:50]}..."
+        if not text:
+            preview_text = "[Image / Area Selection]"
+            
         note_text, ok = QInputDialog.getMultiLineText(
             self,
             "Add Note / Thêm ghi chú",
-            f"Add note for selected text:\n\"{preview_text}\"\n\nEnter note content:",
+            f"Add note for selected area:\n\"{preview_text}\"\n\nEnter note content:",
             ""
         )
         
@@ -587,7 +590,7 @@ class MainWindow(QMainWindow):
                         return True
             return False
             
-        return super().eventFilter(watched, event)
+        return False
 
     def dragEnterEvent(self, event) -> None:
         """

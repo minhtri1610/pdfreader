@@ -40,7 +40,8 @@ class PDFCanvas(QLabel):
             return
             
         if event.button() == Qt.MouseButton.LeftButton:
-            self.start_pos = event.position().toPoint()
+            # Use event.pos() for compatibility and exact integer coordinates
+            self.start_pos = event.pos()
             self.end_pos = self.start_pos
             self.is_selecting = True
             
@@ -54,7 +55,7 @@ class PDFCanvas(QLabel):
         Handle mouse movement. Update selection box.
         """
         if self.is_selecting:
-            self.end_pos = event.position().toPoint()
+            self.end_pos = event.pos()
             self.update()
 
     def mouseReleaseEvent(self, event) -> None:
@@ -81,14 +82,8 @@ class PDFCanvas(QLabel):
             # Perform text extraction in the selected area
             self.extract_selected_text(selection_rect)
             
-            # If text is selected, show context menu
-            if self.selected_text:
-                self.show_context_menu(event.globalPosition().toPoint())
-            else:
-                # Clear visual selection box if no text was captured
-                self.start_pos = None
-                self.end_pos = None
-                self.update()
+            # Show context menu at mouse release position (always show to improve UX)
+            self.show_context_menu(event.globalPosition().toPoint())
 
     def extract_selected_text(self, selection_rect: QRect) -> None:
         """
@@ -110,14 +105,16 @@ class PDFCanvas(QLabel):
         selected_words = []
         for w in words:
             word_rect = fitz.Rect(w[0], w[1], w[2], w[3])
-            # Check if word is inside selection or overlaps significantly
-            intersection = pdf_sel_rect.intersect(word_rect)
-            if pdf_sel_rect.contains(word_rect) or intersection.get_area() > word_rect.get_area() * 0.3:
-                selected_words.append(w)
-                
+            # Check overlap using intersection operator &
+            intersect = pdf_sel_rect & word_rect
+            if not intersect.is_empty:
+                if pdf_sel_rect.contains(word_rect) or intersect.get_area() > word_rect.get_area() * 0.3:
+                    selected_words.append(w)
+                    
         if not selected_words:
+            # If no text found (e.g. image PDF or blank area), save the selected boundary itself
             self.selected_text = ""
-            self.selected_rects = []
+            self.selected_rects = [pdf_sel_rect]
             return
             
         # Sort words naturally (by block, line, then word order)
@@ -171,6 +168,9 @@ class PDFCanvas(QLabel):
                 background-color: #0071e3;
                 color: #ffffff;
             }
+            QMenu::item:disabled {
+                color: #8e8e93;
+            }
         """)
 
         # Add Actions
@@ -180,21 +180,30 @@ class PDFCanvas(QLabel):
         menu.addSeparator()
         act_note = menu.addAction("📝 Add Note / Ghi chú")
         act_copy = menu.addAction("📋 Copy Text")
+        
+        # Disable Copy action if no text was selected
+        if not self.selected_text:
+            act_copy.setEnabled(False)
+            
         menu.addSeparator()
         act_clear = menu.addAction("✖ Clear Selection")
 
         # Execute Menu
         action = menu.exec(global_pos)
         
+        # Capture current selection before clearing state
+        text = self.selected_text
+        rects = self.selected_rects
+        
         if action == act_yellow:
-            self.text_highlighted.emit(self.state.current_page, self.selected_text, self.selected_rects, "yellow")
+            self.text_highlighted.emit(self.state.current_page, text, rects, "yellow")
         elif action == act_green:
-            self.text_highlighted.emit(self.state.current_page, self.selected_text, self.selected_rects, "green")
+            self.text_highlighted.emit(self.state.current_page, text, rects, "green")
         elif action == act_pink:
-            self.text_highlighted.emit(self.state.current_page, self.selected_text, self.selected_rects, "pink")
+            self.text_highlighted.emit(self.state.current_page, text, rects, "pink")
         elif action == act_note:
-            self.text_note_added.emit(self.state.current_page, self.selected_text, self.selected_rects)
-        elif action == act_copy:
+            self.text_note_added.emit(self.state.current_page, text, rects)
+        elif action == act_copy and self.selected_text:
             clipboard = QApplication.clipboard()
             if clipboard:
                 clipboard.setText(self.selected_text)
