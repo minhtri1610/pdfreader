@@ -12,11 +12,12 @@ class PDFCanvas(QLabel):
     # (page_index, selected_text, rects)
     text_note_added = pyqtSignal(int, str, list)
 
-    def __init__(self, state: DocumentState, pdf_engine: PDFEngine, parent=None):
+    def __init__(self, page_index: int, state: DocumentState, pdf_engine: PDFEngine, parent=None):
         """
-        Initialize the PDF Canvas.
+        Initialize the PDF Canvas for a specific page.
         """
         super().__init__(parent)
+        self.page_index = page_index
         self.state = state
         self.pdf_engine = pdf_engine
         
@@ -68,7 +69,7 @@ class PDFCanvas(QLabel):
             point = fitz.Point(px, py)
             
             # Fetch words on the current page
-            words = self.pdf_engine.get_text_words(self.state.current_page)
+            words = self.pdf_engine.get_text_words(self.page_index)
             
             hovering_over_text = False
             for w in words:
@@ -124,7 +125,7 @@ class PDFCanvas(QLabel):
         pdf_sel_rect = fitz.Rect(rx0, ry0, rx1, ry1)
         
         # Get all words on the current page
-        words = self.pdf_engine.get_text_words(self.state.current_page)
+        words = self.pdf_engine.get_text_words(self.page_index)
         
         selected_words = []
         for w in words:
@@ -220,13 +221,13 @@ class PDFCanvas(QLabel):
         rects = self.selected_rects
         
         if action == act_yellow:
-            self.text_highlighted.emit(self.state.current_page, text, rects, "yellow")
+            self.text_highlighted.emit(self.page_index, text, rects, "yellow")
         elif action == act_green:
-            self.text_highlighted.emit(self.state.current_page, text, rects, "green")
+            self.text_highlighted.emit(self.page_index, text, rects, "green")
         elif action == act_pink:
-            self.text_highlighted.emit(self.state.current_page, text, rects, "pink")
+            self.text_highlighted.emit(self.page_index, text, rects, "pink")
         elif action == act_note:
-            self.text_note_added.emit(self.state.current_page, text, rects)
+            self.text_note_added.emit(self.page_index, text, rects)
         elif action == act_copy and self.selected_text:
             clipboard = QApplication.clipboard()
             if clipboard:

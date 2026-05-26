@@ -181,6 +181,61 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     background: none;
     width: 0px;
 }
+
+/* QTabWidget Styling */
+QTabWidget::pane {
+    border-top: 1px solid #d2d2d7;
+    background-color: #ffffff;
+}
+
+QTabWidget::tab-bar {
+    alignment: left;
+}
+
+QTabBar::tab {
+    background: #e5e5ea;
+    border: 1px solid #d2d2d7;
+    border-bottom-color: none;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    padding: 6px 28px 6px 12px;
+    color: #1d1d1f;
+    font-weight: 500;
+    min-width: 80px;
+    max-width: 160px;
+}
+
+QTabBar::tab:selected {
+    background: #ffffff;
+    border-color: #d2d2d7;
+    border-bottom-color: #ffffff;
+}
+
+QTabBar::tab:hover {
+    background: #ebebeb;
+}
+
+/* Custom Tab Close Button */
+#TabCloseButton {
+    border: none;
+    border-radius: 8px;
+    background-color: transparent;
+    color: #1d1d1f;
+    font-size: 14px;
+    font-weight: bold;
+    width: 16px;
+    height: 16px;
+}
+
+#TabCloseButton:hover {
+    background-color: rgba(255, 59, 48, 0.2);
+    color: #ff3b30;
+}
+
+#TabCloseButton:pressed {
+    background-color: rgba(255, 59, 48, 0.4);
+    color: #ff3b30;
+}
 """
 
 DARK_STYLE = """
@@ -362,5 +417,60 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     border: none;
     background: none;
     width: 0px;
+}
+
+/* QTabWidget Styling */
+QTabWidget::pane {
+    border-top: 1px solid #3d3d3d;
+    background-color: #1e1e1e;
+}
+
+QTabWidget::tab-bar {
+    alignment: left;
+}
+
+QTabBar::tab {
+    background: #2d2d2d;
+    border: 1px solid #3d3d3d;
+    border-bottom-color: none;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    padding: 6px 28px 6px 12px;
+    color: #e0e0e0;
+    font-weight: 500;
+    min-width: 80px;
+    max-width: 160px;
+}
+
+QTabBar::tab:selected {
+    background: #1e1e1e;
+    border-color: #3d3d3d;
+    border-bottom-color: #1e1e1e;
+}
+
+QTabBar::tab:hover {
+    background: #353535;
+}
+
+/* Custom Tab Close Button */
+#TabCloseButton {
+    border: none;
+    border-radius: 8px;
+    background-color: transparent;
+    color: #e0e0e0;
+    font-size: 14px;
+    font-weight: bold;
+    width: 16px;
+    height: 16px;
+}
+
+#TabCloseButton:hover {
+    background-color: rgba(255, 69, 58, 0.3);
+    color: #ff453a;
+}
+
+#TabCloseButton:pressed {
+    background-color: rgba(255, 69, 58, 0.5);
+    color: #ff453a;
 }
 """

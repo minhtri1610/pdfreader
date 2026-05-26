@@ -4,7 +4,7 @@ from PyQt6.QtGui import QAction, QIntValidator
 from core.state import DocumentState
 
 class PDFToolBar(QToolBar):
-    def __init__(self, state: DocumentState, parent=None):
+    def __init__(self, state: DocumentState = None, parent=None):
         """
         Initialize the PDF Toolbar.
         """
@@ -16,6 +16,9 @@ class PDFToolBar(QToolBar):
         
         # Initially disable document-specific controls until a document is loaded
         self.set_controls_enabled(False)
+        
+        if self.state:
+            self.set_active_state(self.state)
 
     def init_ui(self) -> None:
         """
@@ -122,24 +125,49 @@ class PDFToolBar(QToolBar):
         """
         Connect actions/widgets and state signals.
         """
-        # Connect UI actions to State methods
-        self.prev_action.triggered.connect(self.state.prev_page)
-        self.next_action.triggered.connect(self.state.next_page)
-        self.zoom_in_action.triggered.connect(lambda: self.state.zoom_in(0.1))
-        self.zoom_out_action.triggered.connect(lambda: self.state.zoom_out(0.1))
-        self.fit_width_action.triggered.connect(lambda: self.set_fit_mode('width'))
-        self.fit_height_action.triggered.connect(lambda: self.set_fit_mode('height'))
-        self.theme_action.triggered.connect(self.state.toggle_theme)
+        # Connect UI actions to wrapper methods
+        self.prev_action.triggered.connect(self.on_prev_page_clicked)
+        self.next_action.triggered.connect(self.on_next_page_clicked)
+        self.zoom_in_action.triggered.connect(self.on_zoom_in_clicked)
+        self.zoom_out_action.triggered.connect(self.on_zoom_out_clicked)
+        self.fit_width_action.triggered.connect(self.on_fit_width_clicked)
+        self.fit_height_action.triggered.connect(self.on_fit_height_clicked)
+        self.theme_action.triggered.connect(self.on_theme_clicked)
 
         # Connect QLineEdit return key
         self.page_input.returnPressed.connect(self.on_page_input_submitted)
 
-        # Connect State signals to UI updates
-        self.state.page_changed.connect(self.on_page_changed)
-        self.state.zoom_changed.connect(self.on_zoom_changed)
-        self.state.theme_changed.connect(self.on_theme_changed)
-        self.state.document_loaded.connect(self.on_document_loaded)
-        self.state.document_closed.connect(self.on_document_closed)
+    def set_active_state(self, state: DocumentState) -> None:
+        """
+        Switch the active document state managed by this toolbar.
+        """
+        # Disconnect old state signals if present
+        if self.state:
+            try:
+                self.state.page_changed.disconnect(self.on_page_changed)
+                self.state.zoom_changed.disconnect(self.on_zoom_changed)
+                self.state.theme_changed.disconnect(self.on_theme_changed)
+                self.state.document_loaded.disconnect(self.on_document_loaded)
+                self.state.document_closed.disconnect(self.on_document_closed)
+            except TypeError:
+                pass
+                
+        self.state = state
+        
+        # Connect new state signals
+        if self.state:
+            self.state.page_changed.connect(self.on_page_changed)
+            self.state.zoom_changed.connect(self.on_zoom_changed)
+            self.state.theme_changed.connect(self.on_theme_changed)
+            self.state.document_loaded.connect(self.on_document_loaded)
+            self.state.document_closed.connect(self.on_document_closed)
+            
+            if self.state.is_loaded:
+                self.on_document_loaded()
+            else:
+                self.on_document_closed()
+        else:
+            self.on_document_closed()
 
     def set_controls_enabled(self, enabled: bool) -> None:
         """
@@ -154,18 +182,41 @@ class PDFToolBar(QToolBar):
         self.fit_height_action.setEnabled(enabled)
         self.extract_action.setEnabled(enabled)
 
-    def set_fit_mode(self, mode: str) -> None:
-        """
-        Update fit mode in state.
-        """
-        self.state.fit_mode = mode
+    # Action Wrapper Slots
+    def on_prev_page_clicked(self) -> None:
+        if self.state:
+            self.state.prev_page()
+
+    def on_next_page_clicked(self) -> None:
+        if self.state:
+            self.state.next_page()
+
+    def on_zoom_in_clicked(self) -> None:
+        if self.state:
+            self.state.zoom_in(0.1)
+
+    def on_zoom_out_clicked(self) -> None:
+        if self.state:
+            self.state.zoom_out(0.1)
+
+    def on_fit_width_clicked(self) -> None:
+        if self.state:
+            self.state.fit_mode = 'width'
+
+    def on_fit_height_clicked(self) -> None:
+        if self.state:
+            self.state.fit_mode = 'height'
+
+    def on_theme_clicked(self) -> None:
+        if self.state:
+            self.state.toggle_theme()
 
     # Slots responding to State changes
     def on_page_changed(self, page_index: int) -> None:
-        self.page_input.setText(str(page_index + 1))
-        # Update navigation buttons state
-        self.prev_action.setEnabled(page_index > 0)
-        self.next_action.setEnabled(page_index < self.state.total_pages - 1)
+        if self.state:
+            self.page_input.setText(str(page_index + 1))
+            self.prev_action.setEnabled(page_index > 0)
+            self.next_action.setEnabled(page_index < self.state.total_pages - 1)
 
     def on_zoom_changed(self, zoom_level: float) -> None:
         self.zoom_label.setText(f"{int(zoom_level * 100)}%")
@@ -179,11 +230,12 @@ class PDFToolBar(QToolBar):
             self.theme_action.setToolTip("Switch to Light Theme")
 
     def on_document_loaded(self) -> None:
-        self.set_controls_enabled(True)
-        self.page_label.setText(f"/ {self.state.total_pages}")
-        self.page_validator.setTop(self.state.total_pages)
-        self.on_page_changed(self.state.current_page)
-        self.on_zoom_changed(self.state.zoom_level)
+        if self.state:
+            self.set_controls_enabled(True)
+            self.page_label.setText(f"/ {self.state.total_pages}")
+            self.page_validator.setTop(self.state.total_pages)
+            self.on_page_changed(self.state.current_page)
+            self.on_zoom_changed(self.state.zoom_level)
 
     def on_document_closed(self) -> None:
         self.set_controls_enabled(False)
@@ -195,10 +247,12 @@ class PDFToolBar(QToolBar):
         """
         Jump to page entered in the LineEdit.
         """
-        text = self.page_input.text()
-        if text:
-            try:
-                page_num = int(text)
-                self.state.current_page = page_num - 1
-            except ValueError:
-                self.on_page_changed(self.state.current_page)
+        if self.state:
+            text = self.page_input.text()
+            if text:
+                try:
+                    page_num = int(text)
+                    self.state.current_page = page_num - 1
+                except ValueError:
+                    self.on_page_changed(self.state.current_page)
+

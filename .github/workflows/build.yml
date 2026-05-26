@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build on ${{ matrix.os }}
@@ -34,23 +37,23 @@ jobs:
     - name: Build with PyInstaller (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        pyinstaller --noconsole --onefile --windowed --name="PremiumPDFReader" --icon="logo.png" main.py
+        pyinstaller --noconsole --onefile --windowed --name="KailashPDFReader" --icon="K.png" main.py
 
     - name: Build with PyInstaller (macOS)
       if: matrix.os == 'macos-latest'
       run: |
-        pyinstaller --noconsole --onefile --windowed --name="PremiumPDFReader" --icon="logo.png" main.py
+        pyinstaller --noconsole --onefile --windowed --name="KailashPDFReader" --icon="K.png" main.py
 
     - name: Upload Artifact (Windows)
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: PremiumPDFReader-Windows
-        path: dist/PremiumPDFReader.exe
+        name: KailashPDFReader-Windows
+        path: dist/KailashPDFReader.exe
 
     - name: Upload Artifact (macOS)
       if: matrix.os == 'macos-latest'
       uses: actions/upload-artifact@v4
       with:
-        name: PremiumPDFReader-macOS
-        path: dist/PremiumPDFReader.app
+        name: KailashPDFReader-macOS
+        path: dist/KailashPDFReader.app
