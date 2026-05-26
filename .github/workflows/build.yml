@@ -43,6 +43,7 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: |
         pyinstaller --noconsole --onefile --windowed --name="KailashPDFReader" --icon="K.png" main.py
+        hdiutil create -volname "KailashPDFReader" -srcfolder dist/KailashPDFReader.app -ov -format UDZO dist/KailashPDFReader.dmg
 
     - name: Upload Artifact (Windows)
       if: matrix.os == 'windows-latest'
@@ -56,4 +57,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: KailashPDFReader-macOS
-        path: dist/KailashPDFReader.app
+        path: dist/KailashPDFReader.dmg

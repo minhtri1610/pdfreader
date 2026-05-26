@@ -33,6 +33,13 @@ echo "--> Bundling the application with PyInstaller..."
 # --icon: Icon file to use for the app
 pyinstaller --noconsole --onefile --windowed --name="KailashPDFReader" --icon="K.png" main.py
 
+# 5. Create DMG disk image on macOS
+if [ "$(uname)" == "Darwin" ]; then
+    echo "--> Packaging as DMG disk image for macOS distribution..."
+    hdiutil create -volname "KailashPDFReader" -srcfolder dist/KailashPDFReader.app -ov -format UDZO dist/KailashPDFReader.dmg
+    echo "--> DMG created: dist/KailashPDFReader.dmg"
+fi
+
 echo "=========================================================="
 echo " Packaging completed successfully! "
 echo " You can find your standalone executable inside the 'dist/' folder."
