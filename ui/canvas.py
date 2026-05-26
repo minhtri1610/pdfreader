@@ -52,11 +52,35 @@ class PDFCanvas(QLabel):
 
     def mouseMoveEvent(self, event) -> None:
         """
-        Handle mouse movement. Update selection box.
+        Handle mouse movement. Update selection box or change cursor shape on hover.
         """
         if self.is_selecting:
             self.end_pos = event.pos()
             self.update()
+        else:
+            # Change cursor to I-beam if hovering over text, otherwise default arrow
+            if not self.state.is_loaded:
+                return
+                
+            zoom = self.state.zoom_level
+            px = event.pos().x() / zoom
+            py = event.pos().y() / zoom
+            point = fitz.Point(px, py)
+            
+            # Fetch words on the current page
+            words = self.pdf_engine.get_text_words(self.state.current_page)
+            
+            hovering_over_text = False
+            for w in words:
+                word_rect = fitz.Rect(w[0], w[1], w[2], w[3])
+                if word_rect.contains(point):
+                    hovering_over_text = True
+                    break
+                    
+            if hovering_over_text:
+                self.setCursor(Qt.CursorShape.IBeamCursor)
+            else:
+                self.setCursor(Qt.CursorShape.ArrowCursor)
 
     def mouseReleaseEvent(self, event) -> None:
         """
