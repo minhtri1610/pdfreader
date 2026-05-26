@@ -42,10 +42,10 @@ class PDFEngine:
             return self.doc.page_count
         return 0
 
-    def render_page(self, page_index: int, zoom_level: float = 1.0, highlight_rects: list = None) -> QPixmap:
+    def render_page(self, page_index: int, zoom_level: float = 1.0, highlight_rects: list = None, db_highlights: list = None) -> QPixmap:
         """
         Render a specific page of the PDF to a QPixmap.
-        Optionally overlays highlight rectangles.
+        Optionally overlays search highlight rectangles and database user highlights.
         Returns a QPixmap of the page, or a null QPixmap if failed.
         """
         if not self.doc or page_index < 0 or page_index >= self.get_page_count():
@@ -78,20 +78,44 @@ class PDFEngine:
             pixmap = QPixmap.fromImage(qimage_copy)
             
             # Overlay highlights if provided
-            if highlight_rects and not pixmap.isNull():
+            if (db_highlights or highlight_rects) and not pixmap.isNull():
                 painter = QPainter(pixmap)
-                # Semi-transparent yellow brush
-                painter.setBrush(QColor(255, 255, 0, 100))
                 painter.setPen(Qt.PenStyle.NoPen)
-                for rect in highlight_rects:
-                    # Scale coordinates by the zoom level
-                    scaled_rect = QRectF(
-                        rect.x0 * zoom_level,
-                        rect.y0 * zoom_level,
-                        (rect.x1 - rect.x0) * zoom_level,
-                        (rect.y1 - rect.y0) * zoom_level
-                    )
-                    painter.drawRect(scaled_rect)
+                
+                # 1. Draw user saved highlights first
+                if db_highlights:
+                    for item in db_highlights:
+                        color_name = item.get("color", "yellow")
+                        if color_name == "green":
+                            color = QColor(144, 238, 144, 110)  # Pastel green
+                        elif color_name == "pink":
+                            color = QColor(255, 182, 193, 120)  # Pastel pink
+                        else:  # "yellow"
+                            color = QColor(255, 255, 0, 100)    # Pastel yellow
+                            
+                        painter.setBrush(color)
+                        for r in item.get("rects", []):
+                            scaled_rect = QRectF(
+                                r[0] * zoom_level,
+                                r[1] * zoom_level,
+                                (r[2] - r[0]) * zoom_level,
+                                (r[3] - r[1]) * zoom_level
+                            )
+                            painter.drawRect(scaled_rect)
+
+                # 2. Draw search highlights on top
+                if highlight_rects:
+                    painter.setBrush(QColor(255, 255, 0, 100))
+                    for rect in highlight_rects:
+                        # Scale coordinates by the zoom level
+                        scaled_rect = QRectF(
+                            rect.x0 * zoom_level,
+                            rect.y0 * zoom_level,
+                            (rect.x1 - rect.x0) * zoom_level,
+                            (rect.y1 - rect.y0) * zoom_level
+                        )
+                        painter.drawRect(scaled_rect)
+                        
                 painter.end()
                 
             return pixmap
@@ -141,5 +165,20 @@ class PDFEngine:
         except Exception as e:
             print(f"Error searching text on page {page_index}: {e}")
             return []
+
+    def get_text_words(self, page_index: int) -> list:
+        """
+        Get words and coordinates from a specific page.
+        Each word: (x0, y0, x1, y1, "word", block_no, line_no, word_no)
+        """
+        if not self.doc or page_index < 0 or page_index >= self.get_page_count():
+            return []
+        try:
+            page = self.doc.load_page(page_index)
+            return page.get_text("words")
+        except Exception as e:
+            print(f"Error getting text words on page {page_index}: {e}")
+            return []
+
 
 

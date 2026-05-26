@@ -1,13 +1,16 @@
 import os
-from PyQt6.QtWidgets import QMainWindow, QFileDialog, QScrollArea, QLabel, QApplication, QWidget, QVBoxLayout, QMessageBox
+from PyQt6.QtWidgets import QMainWindow, QFileDialog, QScrollArea, QLabel, QApplication, QWidget, QVBoxLayout, QMessageBox, QInputDialog
 from PyQt6.QtCore import Qt, QRectF
 from PyQt6.QtGui import QPixmap, QShortcut, QKeySequence, QPainter, QColor, QIcon
 from core.pdf_engine import PDFEngine
 from core.state import DocumentState
 from core.text_extractor import TextExtractor
+from core.notes_manager import NotesManager
 from ui.toolbar import PDFToolBar
 from ui.sidebar import PDFSidebar
 from ui.search_bar import PDFSearchBar
+from ui.canvas import PDFCanvas
+from ui.notebook_sidebar import PDFNotebookSidebar
 from ui.stylesheets import LIGHT_STYLE, DARK_STYLE
 
 class MainWindow(QMainWindow):
@@ -20,6 +23,7 @@ class MainWindow(QMainWindow):
         self.pdf_engine = PDFEngine()
         self.state = DocumentState()
         self.text_extractor = TextExtractor(self.pdf_engine)
+        self.notes_manager = NotesManager()
         
         # Search state variables
         self.search_term = ""
@@ -38,7 +42,7 @@ class MainWindow(QMainWindow):
         Setup the UI components.
         """
         self.setWindowTitle("Premium PDF Reader")
-        self.resize(1100, 800)
+        self.resize(1200, 800)
 
         # Set window and Dock icon using the generated logo
         if os.path.exists("logo.png"):
@@ -72,17 +76,21 @@ class MainWindow(QMainWindow):
         self.scroll_area.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.scroll_area.setWidgetResizable(False)
 
-        # Create canvas QLabel
-        self.canvas = QLabel()
+        # Create custom PDFCanvas (supporting selection and context menus)
+        self.canvas = PDFCanvas(self.state, self.pdf_engine, self)
         self.canvas.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.scroll_area.setWidget(self.canvas)
         container_layout.addWidget(self.scroll_area)
         
         self.setCentralWidget(central_container)
 
-        # 3. Create PDF Sidebar (Dock Widget)
+        # 3. Create PDF Sidebar - Document Outline (Left Dock Widget)
         self.sidebar = PDFSidebar(self.state, self.pdf_engine, self)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self.sidebar)
+
+        # 4. Create PDF Notebook Sidebar - Highlights & Notes (Right Dock Widget)
+        self.notebook_sidebar = PDFNotebookSidebar(self.state, self.notes_manager, self)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.notebook_sidebar)
 
         # Show welcome placeholder
         self.show_welcome_message()
@@ -92,7 +100,7 @@ class MainWindow(QMainWindow):
 
     def connect_signals(self) -> None:
         """
-        Connect signals from DocumentState, Toolbar and SearchBar.
+        Connect signals from DocumentState, Toolbar, SearchBar, Canvas and Notebook.
         """
         # Connect toolbar actions
         self.toolbar.open_action.triggered.connect(self.open_pdf)
@@ -109,6 +117,14 @@ class MainWindow(QMainWindow):
         self.search_bar.search_requested.connect(self.perform_search)
         self.search_bar.search_cleared.connect(self.clear_search_highlights)
         self.search_bar.close_requested.connect(self.hide_search_bar)
+
+        # Connect PDF Canvas selection signals
+        self.canvas.text_highlighted.connect(self.add_highlight)
+        self.canvas.text_note_added.connect(self.add_note)
+
+        # Connect Notebook Sidebar signals
+        self.notebook_sidebar.note_selected.connect(self.on_note_selected)
+        self.notebook_sidebar.note_deleted.connect(self.on_note_deleted)
 
     def setup_shortcuts(self) -> None:
         """
@@ -171,6 +187,9 @@ class MainWindow(QMainWindow):
         self.search_bar.search_input.clear()
         self.clear_search_state()
         
+        # Load local notes associated with the PDF file
+        self.notes_manager.set_pdf_path(file_path)
+        
         success = self.pdf_engine.load_document(file_path)
         
         if success:
@@ -178,8 +197,11 @@ class MainWindow(QMainWindow):
             file_name = os.path.basename(file_path)
             self.setWindowTitle(f"Premium PDF Reader - {file_name}")
             
-            # Load state
+            # Load state (this triggers state loaded event)
             self.state.load_document(self.pdf_engine.get_page_count())
+            
+            # Populate notes list in the notebook sidebar
+            self.notebook_sidebar.load_notes_list()
             
             # Apply Fit or Render first page
             if self.state.fit_mode != 'none':
@@ -228,32 +250,85 @@ class MainWindow(QMainWindow):
                     "An error occurred while saving the extracted text."
                 )
 
+    # Highlight and Notebook additions
+    def add_highlight(self, page: int, text: str, rects: list, color: str) -> None:
+        """
+        Add a colored text highlight annotation.
+        """
+        self.notes_manager.add_note(page, text, "", rects, color)
+        self.render_current_page()
+        self.notebook_sidebar.load_notes_list()
+
+    def add_note(self, page: int, text: str, rects: list) -> None:
+        """
+        Add a text note with a highlight annotation.
+        """
+        preview_text = text if len(text) <= 50 else f"{text[:50]}..."
+        note_text, ok = QInputDialog.getMultiLineText(
+            self,
+            "Add Note / Thêm ghi chú",
+            f"Add note for selected text:\n\"{preview_text}\"\n\nEnter note content:",
+            ""
+        )
+        
+        if ok and note_text.strip():
+            # Save notes with yellow highlight as default visual marker
+            self.notes_manager.add_note(page, text, note_text.strip(), rects, "yellow")
+            self.render_current_page()
+            self.notebook_sidebar.load_notes_list()
+
+    def on_note_selected(self, note: dict) -> None:
+        """
+        Jump to page and focus scroll area on the note text location.
+        """
+        # Jump page
+        self.state.current_page = note["page"]
+        
+        # Center viewport on note location
+        if note.get("rects"):
+            r = note["rects"][0]
+            # Calculate zoomed bounding rectangle
+            scaled_rect = QRectF(
+                r[0] * self.state.zoom_level,
+                r[1] * self.state.zoom_level,
+                (r[2] - r[0]) * self.state.zoom_level,
+                (r[3] - r[1]) * self.state.zoom_level
+            )
+            self.scroll_to_rect(scaled_rect)
+
+    def on_note_deleted(self) -> None:
+        """
+        Refresh canvas when a note is removed.
+        """
+        self.render_current_page()
+
     def render_current_page(self) -> None:
         """
         Fetch the page pixmap from PDFEngine and render on canvas.
-        Highlights search results if they exist on the current page.
+        Highlights search results and user note highlights.
         """
         if not self.state.is_loaded:
             return
 
-        # Fetch rendered QPixmap containing all matches highlighted in yellow
+        # Fetch user highlights for current page from notes manager
+        db_highlights = self.notes_manager.get_notes_for_page(self.state.current_page)
+
+        # Fetch rendered QPixmap containing all highlights
         pixmap = self.pdf_engine.render_page(
             self.state.current_page,
             self.state.zoom_level,
-            highlight_rects=self.search_results
+            highlight_rects=self.search_results,
+            db_highlights=db_highlights
         )
         
-        # If there are search results, draw the ACTIVE match in orange with border
+        # If there are search results, draw the ACTIVE search match in orange
         if not pixmap.isNull() and self.search_results and 0 <= self.current_match_index < len(self.search_results):
             active_rect = self.search_results[self.current_match_index]
             
             painter = QPainter(pixmap)
-            # Orange semi-transparent brush
             painter.setBrush(QColor(255, 128, 0, 140))
-            # Orange pen border
             painter.setPen(QColor(255, 64, 0))
             
-            # Map original PDF coordinates to zoomed coordinates
             scaled_rect = QRectF(
                 active_rect.x0 * self.state.zoom_level,
                 active_rect.y0 * self.state.zoom_level,
@@ -263,7 +338,6 @@ class MainWindow(QMainWindow):
             painter.drawRect(scaled_rect)
             painter.end()
             
-            # Auto-scroll to show the active search result in viewport center
             self.scroll_to_rect(scaled_rect)
 
         if not pixmap.isNull():
@@ -279,13 +353,11 @@ class MainWindow(QMainWindow):
         """
         Auto-scroll the scrollbars to center the target rectangle.
         """
-        # Center horizontally
         h_bar = self.scroll_area.horizontalScrollBar()
         vp_w = self.scroll_area.viewport().width()
         target_h = int(rect.center().x() - vp_w / 2)
         h_bar.setValue(target_h)
 
-        # Center vertically
         v_bar = self.scroll_area.verticalScrollBar()
         vp_h = self.scroll_area.viewport().height()
         target_v = int(rect.center().y() - vp_h / 2)
@@ -360,10 +432,8 @@ class MainWindow(QMainWindow):
         if not self.state.is_loaded or not text:
             return
 
-        # Case 1: Brand new search query
         if text != self.search_term:
             self.search_term = text
-            # Find occurrences on current page
             results = self.pdf_engine.search_text_on_page(self.state.current_page, text)
             
             if results:
@@ -372,29 +442,22 @@ class MainWindow(QMainWindow):
                 self.render_current_page()
                 self.search_bar.set_result_status(1, len(results))
             else:
-                # If current page has no matches, scan remaining pages
                 self.scan_other_pages_for_search(text, self.state.current_page, forward)
-
-        # Case 2: Continuing current search (Next/Prev clicked)
         else:
             if not self.search_results:
                 self.scan_other_pages_for_search(text, self.state.current_page, forward)
                 return
 
             if forward:
-                # Next match
                 self.current_match_index += 1
                 if self.current_match_index >= len(self.search_results):
-                    # We finished results on this page, scan forward
                     self.scan_other_pages_for_search(text, self.state.current_page, forward)
                 else:
                     self.render_current_page()
                     self.search_bar.set_result_status(self.current_match_index + 1, len(self.search_results))
             else:
-                # Previous match
                 self.current_match_index -= 1
                 if self.current_match_index < 0:
-                    # We finished results on this page, scan backward
                     self.scan_other_pages_for_search(text, self.state.current_page, forward)
                 else:
                     self.render_current_page()
@@ -405,25 +468,20 @@ class MainWindow(QMainWindow):
         Iterate through other pages to find matches and jump.
         """
         total = self.state.total_pages
-        # Define search sequence wrap-around
         if forward:
-            # Check pages after current, then from page 0 up to current
             pages_to_check = list(range(start_page + 1, total)) + list(range(0, start_page + 1))
         else:
-            # Check pages before current, then from last page down to current
             pages_to_check = list(range(start_page - 1, -1, -1)) + list(range(total - 1, start_page - 1, -1))
 
         for page_idx in pages_to_check:
             matches = self.pdf_engine.search_text_on_page(page_idx, text)
             if matches:
                 self.search_results = matches
-                # Jump state to that page
                 self.current_match_index = 0 if forward else len(matches) - 1
                 self.state.current_page = page_idx
                 self.search_bar.set_result_status(self.current_match_index + 1, len(matches))
                 return
 
-        # If nowhere contains the text
         self.search_results = []
         self.current_match_index = -1
         self.render_current_page()
@@ -434,17 +492,14 @@ class MainWindow(QMainWindow):
         """
         Intercept wheel events for Zoom (Ctrl + Wheel).
         """
-        # Check if Control key is pressed during mouse scroll
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             delta = event.angleDelta().y()
             if delta > 0:
                 self.state.zoom_in(0.05)
             else:
                 self.state.zoom_out(0.05)
-            # Accept event to prevent scrolling the vertical ScrollBar
             event.accept()
         else:
-            # Normal scrolling
             super().wheelEvent(event)
 
     # Slots
@@ -452,11 +507,9 @@ class MainWindow(QMainWindow):
         """
         Triggered when current page changes.
         """
-        # If the page changed is different from where we searched, reset local search results
         if self.search_term:
             results = self.pdf_engine.search_text_on_page(page_index, self.search_term)
             self.search_results = results
-            # Keep index in bounds or reset
             if results:
                 if self.current_match_index < 0 or self.current_match_index >= len(results):
                     self.current_match_index = 0
@@ -498,28 +551,6 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         if self.state.is_loaded and self.state.fit_mode != 'none':
             self.calculate_and_apply_fit_zoom()
-
-    def dragEnterEvent(self, event) -> None:
-        """
-        Accept drag-enter events if they contain at least one local PDF file.
-        """
-        if event.mimeData().hasUrls():
-            for url in event.mimeData().urls():
-                if url.toLocalFile().lower().endswith('.pdf'):
-                    event.acceptProposedAction()
-                    return
-
-    def dropEvent(self, event) -> None:
-        """
-        Open the first PDF file dropped onto the application window.
-        """
-        if event.mimeData().hasUrls():
-            for url in event.mimeData().urls():
-                file_path = url.toLocalFile()
-                if file_path.lower().endswith('.pdf'):
-                    self.load_pdf_from_path(file_path)
-                    event.acceptProposedAction()
-                    return
 
     def closeEvent(self, event) -> None:
         """

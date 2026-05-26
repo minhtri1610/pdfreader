@@ -90,6 +90,26 @@ QTreeWidget::item:selected {
     color: #0071e3;
 }
 
+/* QListWidget (Notebook Sidebar) Styling */
+QListWidget {
+    background-color: #ffffff;
+    color: #1d1d1f;
+    border: none;
+}
+
+QListWidget::item {
+    border-bottom: 1px solid #e5e5ea;
+    padding: 2px;
+}
+
+QListWidget::item:hover {
+    background-color: #f5f5f7;
+}
+
+QListWidget::item:selected {
+    background-color: #e8f2ff;
+}
+
 /* Search Bar Area */
 #SearchBarContainer {
     background-color: #ffffff;
@@ -244,6 +264,26 @@ QTreeWidget::item:hover {
 QTreeWidget::item:selected {
     background-color: #1a4572;
     color: #ffffff;
+}
+
+/* QListWidget (Notebook Sidebar) Styling */
+QListWidget {
+    background-color: #2d2d2d;
+    color: #e0e0e0;
+    border: none;
+}
+
+QListWidget::item {
+    border-bottom: 1px solid #3d3d3d;
+    padding: 2px;
+}
+
+QListWidget::item:hover {
+    background-color: #3d3d3d;
+}
+
+QListWidget::item:selected {
+    background-color: #1a4572;
 }
 
 /* Search Bar Area */
