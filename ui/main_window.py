@@ -174,7 +174,10 @@ class MainWindow(QMainWindow):
                 
                 # Apply Fit or Render first page
                 if self.state.fit_mode != 'none':
+                    old_zoom = self.state.zoom_level
                     self.calculate_and_apply_fit_zoom()
+                    if old_zoom == self.state.zoom_level:
+                        self.render_current_page()
                 else:
                     self.render_current_page()
             else:
@@ -456,7 +459,10 @@ class MainWindow(QMainWindow):
             self.clear_search_state()
             
         if self.state.fit_mode != 'none':
+            old_zoom = self.state.zoom_level
             self.calculate_and_apply_fit_zoom()
+            if old_zoom == self.state.zoom_level:
+                self.render_current_page()
         else:
             self.render_current_page()
 
@@ -471,7 +477,10 @@ class MainWindow(QMainWindow):
         Triggered when fit mode changes.
         """
         if mode != 'none':
+            old_zoom = self.state.zoom_level
             self.calculate_and_apply_fit_zoom()
+            if old_zoom == self.state.zoom_level:
+                self.render_current_page()
 
     def resizeEvent(self, event) -> None:
         """
