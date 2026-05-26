@@ -1,6 +1,6 @@
 @echo off
 echo ==========================================================
-echo  Starting Packaging Process for Premium PDF Reader (Windows)
+echo  Starting Packaging Process for Kailash PDF Reader (Windows)
 echo ==========================================================
 
 :: 1. Check Python installation
@@ -28,15 +28,16 @@ pip install pyinstaller Pillow
 echo --> Cleaning up old build folders...
 if exist build rmdir /s /q build
 if exist dist rmdir /s /q dist
+if exist KailashPDFReader.spec del /f /q KailashPDFReader.spec
 if exist PremiumPDFReader.spec del /f /q PremiumPDFReader.spec
 
 :: 5. Package with PyInstaller
 echo --> Bundling the application with PyInstaller...
-:: On Windows, PyInstaller will automatically convert logo.png to .ico if Pillow is installed
-pyinstaller --noconsole --onefile --windowed --name="PremiumPDFReader" --icon="logo.png" main.py
+:: On Windows, PyInstaller will automatically convert K.png to .ico if Pillow is installed
+pyinstaller --noconsole --onefile --windowed --name="KailashPDFReader" --icon="K.png" main.py
 
 echo ==========================================================
 echo  Packaging completed successfully!
-echo  You can find your standalone executable PremiumPDFReader.exe inside the 'dist' folder.
+echo  You can find your standalone executable KailashPDFReader.exe inside the 'dist' folder.
 echo ==========================================================
 pause

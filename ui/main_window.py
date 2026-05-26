@@ -41,12 +41,12 @@ class MainWindow(QMainWindow):
         """
         Setup the UI components.
         """
-        self.setWindowTitle("Premium PDF Reader")
+        self.setWindowTitle("Kailash PDF Reader")
         self.resize(1200, 800)
 
         # Set window and Dock icon using the generated logo
-        if os.path.exists("logo.png"):
-            self.setWindowIcon(QIcon("logo.png"))
+        if os.path.exists("K.png"):
+            self.setWindowIcon(QIcon("K.png"))
 
         # 1. Custom PDF Toolbar
         self.toolbar = PDFToolBar(self.state, self)
@@ -131,6 +131,14 @@ class MainWindow(QMainWindow):
         self.notebook_sidebar.note_selected.connect(self.on_note_selected)
         self.notebook_sidebar.note_deleted.connect(self.on_note_deleted)
 
+        # Connect toolbar outline and notebook toggles
+        self.toolbar.outline_action.triggered.connect(self.toggle_outline)
+        self.toolbar.notebook_action.triggered.connect(self.toggle_notebook)
+
+        # Connect dock widget visibility changes back to toolbar action check states
+        self.sidebar.visibilityChanged.connect(self.toolbar.outline_action.setChecked)
+        self.notebook_sidebar.visibilityChanged.connect(self.toolbar.notebook_action.setChecked)
+
     def setup_shortcuts(self) -> None:
         """
         Setup keyboard shortcuts for fast navigation.
@@ -200,7 +208,7 @@ class MainWindow(QMainWindow):
         if success:
             # Update window title
             file_name = os.path.basename(file_path)
-            self.setWindowTitle(f"Premium PDF Reader - {file_name}")
+            self.setWindowTitle(f"Kailash PDF Reader - {file_name}")
             
             # Load state (this triggers state loaded event)
             self.state.load_document(self.pdf_engine.get_page_count())
@@ -621,3 +629,16 @@ class MainWindow(QMainWindow):
         self.pdf_engine.close_document()
         self.state.close_document()
         event.accept()
+
+    def toggle_outline(self, checked: bool) -> None:
+        """
+        Show or hide the document outline sidebar.
+        """
+        self.sidebar.setVisible(checked)
+
+    def toggle_notebook(self, checked: bool) -> None:
+        """
+        Show or hide the notebook sidebar.
+        """
+        self.notebook_sidebar.setVisible(checked)
+

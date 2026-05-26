@@ -27,6 +27,13 @@ class PDFToolBar(QToolBar):
         self.open_action.setToolTip("Open a PDF file")
         self.addAction(self.open_action)
 
+        # 1b. Document Outline Toggle
+        self.outline_action = QAction("📖 Outline", self)
+        self.outline_action.setCheckable(True)
+        self.outline_action.setChecked(True)
+        self.outline_action.setToolTip("Show/Hide Document Outline")
+        self.addAction(self.outline_action)
+
         self.addSeparator()
 
         # 2. Navigation Group
@@ -93,6 +100,13 @@ class PDFToolBar(QToolBar):
         self.extract_action = QAction("📝 Extract Text", self)
         self.extract_action.setToolTip("Extract all PDF text to a .txt file (AI-ready)")
         self.addAction(self.extract_action)
+
+        # 5b. Notebook Toggle
+        self.notebook_action = QAction("📓 Notebook", self)
+        self.notebook_action.setCheckable(True)
+        self.notebook_action.setChecked(True)
+        self.notebook_action.setToolTip("Show/Hide Notebook & Notes")
+        self.addAction(self.notebook_action)
 
         # 6. Spacer to push Theme Switcher to the far right
         spacer = QWidget()

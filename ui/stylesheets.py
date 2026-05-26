@@ -23,6 +23,12 @@ QToolButton {
     font-weight: 500;
 }
 
+QToolButton:checked {
+    background-color: #e8f2ff;
+    border-color: #0071e3;
+    color: #0071e3;
+}
+
 QToolButton:hover {
     background-color: #f5f5f7;
     border-color: #d2d2d7;
@@ -197,6 +203,12 @@ QToolButton {
     color: #e0e0e0;
     font-size: 13px;
     font-weight: 500;
+}
+
+QToolButton:checked {
+    background-color: #1a4572;
+    border-color: #0a84ff;
+    color: #ffffff;
 }
 
 QToolButton:hover {
